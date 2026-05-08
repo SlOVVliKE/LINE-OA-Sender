@@ -10,7 +10,7 @@
 - ส่งข้อความ, รูปภาพ, หรือข้อความพร้อมรูป ผ่าน LINE Push API
 - อัปโหลดรูปขึ้น Cloudinary เพื่อให้ได้ HTTPS URL สำหรับ LINE
 - ตั้งเวลาส่งอัตโนมัติวันละครั้งตามเวลา `Asia/Bangkok`
-- Render Cron รัน `npm run send:due` เพื่อตรวจงานที่ถึงเวลา
+- GitHub Actions เรียก `/internal/send-due` เป็นระยะ เพื่อตรวจงานที่ถึงเวลาโดยไม่ต้องใช้ Render Cron
 
 ## ตั้งค่า Environment
 
@@ -48,15 +48,31 @@ npm.cmd run dev
 
 1. Push โปรเจกต์นี้ขึ้น GitHub/GitLab/Bitbucket
 2. ใช้ `render.yaml` เป็น Blueprint
-3. กรอก secret env vars ใน Render
-4. ตั้ง LINE Webhook URL เป็น:
+3. Blueprint นี้ตั้ง Web Service และ Render Postgres เป็น `free` แล้ว และไม่มี Render Cron Job
+4. กรอก secret env vars ใน Render โดยตั้ง `CRON_SECRET` เป็นรหัสยาวแบบสุ่ม และจำค่านี้ไว้ใช้กับ GitHub Actions
+5. ตั้ง LINE Webhook URL เป็น:
 
 ```text
 https://YOUR_RENDER_SERVICE.onrender.com/webhook/line
 ```
 
-5. เปิดใช้งาน webhook ใน LINE Developers Console
-6. ให้ผู้ใช้ทัก OA หรือให้ OA ถูกเพิ่มเข้ากลุ่มก่อน รายชื่อจึงจะขึ้นใน UI
+6. เปิดใช้งาน webhook ใน LINE Developers Console
+7. ให้ผู้ใช้ทัก OA หรือให้ OA ถูกเพิ่มเข้ากลุ่มก่อน รายชื่อจึงจะขึ้นใน UI
+
+## ตั้งเวลาแบบฟรีด้วย GitHub Actions
+
+Render Cron ไม่มีแผนฟรี จึงใช้ workflow ใน `.github/workflows/send-due.yml` แทน โดย workflow จะเรียกเว็บทุก 10 นาทีแล้วระบบจะส่งเฉพาะเมื่อถึงเวลารายวันที่ตั้งไว้
+
+หลัง deploy Render แล้ว ให้เพิ่ม Repository secrets ใน GitHub:
+
+- `APP_BASE_URL` = URL ของ Render เช่น `https://line-oa-sender.onrender.com`
+- `CRON_SECRET` = ค่าเดียวกับ `CRON_SECRET` ที่ตั้งไว้ใน Render
+
+ข้อจำกัดของแบบฟรี:
+
+- Render Free Web Service อาจหน่วงตอนตื่นจาก sleep
+- Render Free Postgres หมดอายุหลังสร้าง 30 วัน ถ้าต้องการฟรีแบบเก็บข้อมูลยาวกว่า ให้ใช้ Supabase/Neon free แล้วใส่ connection string ใน `DATABASE_URL` แทน Render Postgres
+- LINE OA ยังคิดตามโควตาข้อความของ LINE เอง ไม่เกี่ยวกับ Render
 
 ## หมายเหตุการส่งทั้งหมด
 

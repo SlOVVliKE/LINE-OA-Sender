@@ -175,53 +175,13 @@ textarea:focus {
 
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 248px 1fr;
-}
-
-.sidebar {
-  background: white;
-  border-right: 1px solid var(--line);
-  padding: 22px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-}
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-weight: 900;
-  font-size: 18px;
-}
-
-.sidebar nav {
-  display: grid;
-  gap: 7px;
-}
-
-.sidebar a {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  color: #59657a;
-  padding: 12px;
-  border-radius: 8px;
-  font-weight: 750;
-}
-
-.sidebar a.active {
-  background: var(--green);
-  color: white;
-}
-
-.logout {
-  margin-top: auto;
+  background: #f5f7fa;
 }
 
 .workspace {
-  padding: 24px;
+  width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 24px 28px 32px;
   display: grid;
   gap: 18px;
   align-content: start;
@@ -242,6 +202,19 @@ textarea:focus {
 .topbar p {
   margin: 4px 0 0;
   color: var(--muted);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.logout-button {
+  background: white;
+  min-width: 132px;
 }
 
 .stats-row {
@@ -632,27 +605,6 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 1180px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-  }
-
-  .sidebar nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-  }
-
-  .logout {
-    margin-left: auto;
-    margin-top: 0;
-  }
-
   .dashboard-grid,
   .stats-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -664,15 +616,6 @@ input[type="checkbox"] {
     padding: 16px;
   }
 
-  .sidebar {
-    padding: 12px;
-  }
-
-  .sidebar-brand span,
-  .sidebar nav {
-    display: none;
-  }
-
   .stats-row,
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -680,6 +623,16 @@ input[type="checkbox"] {
 
   .topbar {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .logout-button {
+    flex: 1;
   }
 
   .topbar h1 {

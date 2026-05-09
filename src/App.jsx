@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
-  CalendarClock,
   CheckCircle2,
   Clock3,
   CloudUpload,
   Image,
   Loader2,
   LogOut,
-  MessageSquareText,
   RefreshCw,
   Search,
   Send,
@@ -234,32 +231,21 @@ function Dashboard({ onLogout }) {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-mark small">L</div>
-          <span>LINE OA Sender</span>
-        </div>
-        <nav>
-          <a className="active"><MessageSquareText size={18} /> ข้อความ</a>
-          <a><UsersRound size={18} /> ผู้รับและกลุ่ม</a>
-          <a><CalendarClock size={18} /> ตั้งเวลา</a>
-          <a><Bell size={18} /> ประวัติส่ง</a>
-        </nav>
-        <button className="ghost-button logout" onClick={logout}>
-          <LogOut size={18} />
-          ออกจากระบบ
-        </button>
-      </aside>
-
       <section className="workspace">
         <header className="topbar">
           <div>
             <h1>ส่งข้อความ LINE OA</h1>
             <p>จัดการผู้รับจาก webhook และส่งข้อความหรือรูปได้จากหน้าเดียว</p>
           </div>
-          <button className="icon-button" onClick={() => loadData()} aria-label="refresh">
-            <RefreshCw size={18} />
-          </button>
+          <div className="topbar-actions">
+            <button className="icon-button" onClick={() => loadData()} aria-label="refresh">
+              <RefreshCw size={18} />
+            </button>
+            <button className="ghost-button logout-button" onClick={logout}>
+              <LogOut size={18} />
+              ออกจากระบบ
+            </button>
+          </div>
         </header>
 
         <section className="stats-row">

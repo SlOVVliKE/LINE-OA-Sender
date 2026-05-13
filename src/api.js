@@ -32,6 +32,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({})
     }),
+  lineSettings: () => request("/api/line-settings"),
+  saveLineSettings: (payload) =>
+    request("/api/line-settings", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
   recipients: () => request("/api/recipients"),
   campaign: () => request("/api/campaign"),
   saveCampaign: (payload) =>

@@ -15,6 +15,10 @@ import {
   saveDailyCampaign,
   sendDueDailyCampaign
 } from "../services/campaignService.js";
+import {
+  getLineSettingsForAdmin,
+  saveLineSettings
+} from "../services/lineSettingsService.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -26,6 +30,27 @@ const upload = multer({
 export const apiRouter = express.Router();
 
 apiRouter.use(requireAuth);
+
+apiRouter.get(
+  "/line-settings",
+  asyncHandler(async (_req, res) => {
+    const settings = await getLineSettingsForAdmin();
+    res.json({ settings });
+  })
+);
+
+apiRouter.put(
+  "/line-settings",
+  asyncHandler(async (req, res) => {
+    const result = await saveLineSettings({
+      channelAccessToken: req.body?.channelAccessToken,
+      channelSecret: req.body?.channelSecret,
+      clearRecipientsOnChange: Boolean(req.body?.clearRecipientsOnChange)
+    });
+
+    res.json(result);
+  })
+);
 
 apiRouter.get(
   "/recipients",

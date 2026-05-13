@@ -30,6 +30,17 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS line_settings (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      channel_access_token TEXT NOT NULL DEFAULT '',
+      channel_secret TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    INSERT INTO line_settings (id)
+    VALUES (1)
+    ON CONFLICT (id) DO NOTHING;
+
     CREATE TABLE IF NOT EXISTS daily_campaign (
       id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
       enabled BOOLEAN NOT NULL DEFAULT FALSE,

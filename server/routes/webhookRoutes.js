@@ -1,10 +1,10 @@
 import express from "express";
-import { config } from "../config/env.js";
 import { query } from "../db/pool.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validateLineSignature } from "../utils/lineSignature.js";
 import { unauthorized } from "../utils/httpError.js";
 import { captureRecipientsFromEvent } from "../services/recipientService.js";
+import { getActiveLineConfig } from "../services/lineSettingsService.js";
 
 export const webhookRouter = express.Router();
 
@@ -31,10 +31,16 @@ webhookRouter.post(
   "/line",
   asyncHandler(async (req, res) => {
     const signature = req.headers["x-line-signature"];
+    const lineConfig = await getActiveLineConfig();
+
+    if (!lineConfig.channelSecret) {
+      throw unauthorized("LINE OA settings are not configured");
+    }
+
     const isValid = validateLineSignature(
       req.rawBody,
       signature,
-      config.lineChannelSecret
+      lineConfig.channelSecret
     );
 
     if (!isValid) {

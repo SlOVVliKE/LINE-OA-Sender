@@ -23,8 +23,6 @@ export const config = {
 export function requireRuntimeConfig() {
   const required = [
     "databaseUrl",
-    "lineChannelAccessToken",
-    "lineChannelSecret",
     "cloudinaryCloudName",
     "cloudinaryApiKey",
     "cloudinaryApiSecret",

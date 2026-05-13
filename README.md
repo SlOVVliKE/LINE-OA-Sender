@@ -8,6 +8,7 @@
 - ตรวจ `X-Line-Signature` ก่อนบันทึกข้อมูล
 - เก็บผู้รับจาก webhook เป็นชื่อผู้ใช้หรือชื่อกลุ่ม แทนการแสดง UID
 - ส่งข้อความ, รูปภาพ, หรือข้อความพร้อมรูป ผ่าน LINE Push API
+- เปลี่ยน LINE OA ได้จากหน้า UI โดยกรอก Channel access token และ Channel secret ใหม่
 - อัปโหลดรูปขึ้น Cloudinary เพื่อให้ได้ HTTPS URL สำหรับ LINE
 - ตั้งเวลาส่งอัตโนมัติวันละครั้งตามเวลา `Asia/Bangkok`
 - GitHub Actions เรียก `/internal/send-due` เป็นระยะ เพื่อตรวจงานที่ถึงเวลาโดยไม่ต้องใช้ Render Cron
@@ -17,8 +18,8 @@
 คัดลอกจาก `.env.example` แล้วใส่ค่าจริง:
 
 ```bash
-LINE_CHANNEL_ACCESS_TOKEN=
-LINE_CHANNEL_SECRET=
+LINE_CHANNEL_ACCESS_TOKEN= # optional fallback, เปลี่ยนผ่าน UI ได้
+LINE_CHANNEL_SECRET= # optional fallback, เปลี่ยนผ่าน UI ได้
 DATABASE_URL=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
@@ -58,6 +59,13 @@ https://YOUR_RENDER_SERVICE.onrender.com/webhook/line
 
 6. เปิดใช้งาน webhook ใน LINE Developers Console
 7. ให้ผู้ใช้ทัก OA หรือให้ OA ถูกเพิ่มเข้ากลุ่มก่อน รายชื่อจึงจะขึ้นใน UI
+
+หลังเข้า UI แล้ว สามารถเปลี่ยน LINE OA ได้ที่กล่อง “ตั้งค่า LINE OA” โดยกรอกค่าใหม่:
+
+- `LINE_CHANNEL_ACCESS_TOKEN`
+- `LINE_CHANNEL_SECRET`
+
+ถ้าเปลี่ยนเป็น OA ใหม่ ควรติ๊ก “ล้างรายชื่อผู้รับเดิมเมื่อเปลี่ยน OA” เพราะรายชื่อ user/group ที่จับจาก OA เดิมอาจส่งกับ OA ใหม่ไม่ได้ ต้องให้ผู้ใช้ทัก OA ใหม่หรือเพิ่ม OA ใหม่เข้ากลุ่มก่อน
 
 ## ตั้งเวลาแบบฟรีด้วย GitHub Actions
 

@@ -4,11 +4,13 @@ import {
   Clock3,
   CloudUpload,
   Image,
+  KeyRound,
   Loader2,
   LogOut,
   RefreshCw,
   Search,
   Send,
+  Settings2,
   Shield,
   UsersRound,
   XCircle
@@ -101,16 +103,22 @@ function Dashboard({ onLogout }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [lineSettings, setLineSettings] = useState(null);
+  const [lineAccessTokenInput, setLineAccessTokenInput] = useState("");
+  const [lineSecretInput, setLineSecretInput] = useState("");
+  const [clearRecipientsOnChange, setClearRecipientsOnChange] = useState(true);
 
   async function loadData() {
-    const [recipientData, campaignData, historyData] = await Promise.all([
+    const [recipientData, campaignData, historyData, lineSettingsData] = await Promise.all([
       api.recipients(),
       api.campaign(),
-      api.history()
+      api.history(),
+      api.lineSettings()
     ]);
 
     setRecipients(recipientData.recipients || []);
     setHistory(historyData.logs || []);
+    setLineSettings(lineSettingsData.settings || null);
 
     const campaign = campaignData.campaign;
     if (campaign) {
@@ -150,6 +158,12 @@ function Dashboard({ onLogout }) {
   const failedToday = history.filter((item) => item.status === "failed").length;
   const hasContent = Boolean(messageText.trim() || selectedImage?.id);
   const canSend = hasContent && selectedCount > 0 && !busy;
+  const lineSettingsLabel =
+    lineSettings?.source === "database"
+      ? "ใช้ค่าจากหน้า UI"
+      : lineSettings?.source === "environment"
+        ? "ใช้ค่าจาก Render Env"
+        : "ยังไม่ได้ตั้งค่า";
 
   function toggleRecipient(id) {
     setSelectedIds((current) =>
@@ -224,6 +238,40 @@ function Dashboard({ onLogout }) {
     }
   }
 
+  async function saveLineConfiguration() {
+    setBusy(true);
+    setError("");
+    setStatus("");
+
+    try {
+      const result = await api.saveLineSettings({
+        channelAccessToken: lineAccessTokenInput,
+        channelSecret: lineSecretInput,
+        clearRecipientsOnChange
+      });
+
+      setLineSettings(result.settings);
+      setLineAccessTokenInput("");
+      setLineSecretInput("");
+      setClearRecipientsOnChange(true);
+
+      if (result.recipientsCleared) {
+        setRecipients([]);
+        setSelectedIds([]);
+      }
+
+      setStatus(
+        result.recipientsCleared
+          ? "บันทึก LINE OA ใหม่แล้ว และล้างรายชื่อผู้รับเดิมแล้ว"
+          : "บันทึกค่า LINE OA แล้ว"
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function logout() {
     await api.logout();
     onLogout();
@@ -260,6 +308,64 @@ function Dashboard({ onLogout }) {
             {error || status}
           </div>
         )}
+
+        <section className="panel line-settings-panel">
+          <div className="panel-heading line-settings-heading">
+            <div>
+              <span><Settings2 size={16} /></span>
+              <h2>ตั้งค่า LINE OA</h2>
+            </div>
+            <strong className={`settings-pill ${lineSettings?.hasCredentials ? "ready" : "missing"}`}>
+              {lineSettingsLabel}
+            </strong>
+          </div>
+
+          <div className="line-settings-grid">
+            <label className="field-label">
+              LINE_CHANNEL_ACCESS_TOKEN
+              <input
+                type="password"
+                value={lineAccessTokenInput}
+                onChange={(event) => setLineAccessTokenInput(event.target.value)}
+                placeholder={
+                  lineSettings?.tokenPreview
+                    ? `ตั้งอยู่แล้ว: ${lineSettings.tokenPreview}`
+                    : "ใส่ Channel access token"
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className="field-label">
+              LINE_CHANNEL_SECRET
+              <input
+                type="password"
+                value={lineSecretInput}
+                onChange={(event) => setLineSecretInput(event.target.value)}
+                placeholder={
+                  lineSettings?.secretPreview
+                    ? `ตั้งอยู่แล้ว: ${lineSettings.secretPreview}`
+                    : "ใส่ Channel secret"
+                }
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <div className="line-settings-footer">
+            <label className="check-row settings-clear">
+              <input
+                type="checkbox"
+                checked={clearRecipientsOnChange}
+                onChange={(event) => setClearRecipientsOnChange(event.target.checked)}
+              />
+              <span>ล้างรายชื่อผู้รับเดิมเมื่อเปลี่ยน OA</span>
+            </label>
+            <button className="secondary-button save-settings-button" onClick={saveLineConfiguration} disabled={busy}>
+              {busy ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
+              บันทึกค่า LINE OA
+            </button>
+          </div>
+        </section>
 
         <section className="dashboard-grid">
           <section className="panel compose-panel">

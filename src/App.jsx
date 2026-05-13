@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   CloudUpload,
+  Copy,
   Image,
   KeyRound,
   Loader2,
@@ -262,6 +263,33 @@ function AdminDashboard({ session, onLogout }) {
     }));
   }
 
+  async function copyWebhook(webhookUrl) {
+    setError("");
+    setStatus("");
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(webhookUrl);
+      } else {
+        const textarea = document.createElement("textarea");
+        try {
+          textarea.value = webhookUrl;
+          textarea.setAttribute("readonly", "");
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+        } finally {
+          textarea.remove();
+        }
+      }
+      setStatus("คัดลอก webhook แล้ว");
+    } catch {
+      setError("คัดลอก webhook ไม่สำเร็จ");
+    }
+  }
+
   async function logout() {
     await api.logout();
     onLogout();
@@ -431,8 +459,16 @@ function AdminDashboard({ session, onLogout }) {
                       {botItem.is_active ? "active" : "inactive"}
                     </span>
                   </div>
-                  <code>{botItem.webhook_url}</code>
-                  <small>Token: {botItem.token_preview} | Secret: {botItem.secret_preview}</small>
+                  <div className="webhook-copy-row">
+                    <code>{botItem.webhook_url}</code>
+                    <button
+                      className="secondary-button copy-button"
+                      type="button"
+                      onClick={() => copyWebhook(botItem.webhook_url)}
+                    >
+                      <Copy size={16} /> คัดลอก webhook
+                    </button>
+                  </div>
                   <div className="row-actions">
                     <button
                       className="secondary-button"

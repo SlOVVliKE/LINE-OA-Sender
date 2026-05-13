@@ -417,7 +417,15 @@ textarea:focus {
   font-size: 12px;
 }
 
-.admin-card small,
+.webhook-copy-row {
+  display: grid;
+  gap: 8px;
+}
+
+.copy-button {
+  justify-self: start;
+}
+
 .user-row span {
   color: var(--muted);
 }

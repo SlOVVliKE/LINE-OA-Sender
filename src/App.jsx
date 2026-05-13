@@ -259,10 +259,13 @@ function Dashboard({ onLogout }) {
         setRecipients([]);
         setSelectedIds([]);
       }
+      if (result.historyCleared) {
+        setHistory([]);
+      }
 
       setStatus(
         result.recipientsCleared
-          ? "บันทึก LINE OA ใหม่แล้ว และล้างรายชื่อผู้รับเดิมแล้ว"
+          ? "บันทึก LINE OA ใหม่แล้ว และล้างรายชื่อผู้รับเดิมกับประวัติส่งแล้ว"
           : "บันทึกค่า LINE OA แล้ว"
       );
     } catch (err) {
@@ -358,7 +361,7 @@ function Dashboard({ onLogout }) {
                 checked={clearRecipientsOnChange}
                 onChange={(event) => setClearRecipientsOnChange(event.target.checked)}
               />
-              <span>ล้างรายชื่อผู้รับเดิมเมื่อเปลี่ยน OA</span>
+              <span>ล้างรายชื่อผู้รับเดิมและประวัติส่งเมื่อเปลี่ยน OA</span>
             </label>
             <button className="secondary-button save-settings-button" onClick={saveLineConfiguration} disabled={busy}>
               {busy ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}

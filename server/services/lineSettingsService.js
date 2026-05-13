@@ -103,6 +103,7 @@ export async function saveLineSettings({
   );
 
   let recipientsCleared = false;
+  let historyCleared = false;
   if (changed && clearRecipientsOnChange) {
     await query(`
       UPDATE recipients
@@ -114,13 +115,16 @@ export async function saveLineSettings({
       SET all_recipients = TRUE, recipient_ids = '[]'::jsonb, updated_at = NOW()
       WHERE id = 1
     `);
+    await query("DELETE FROM delivery_logs");
     recipientsCleared = true;
+    historyCleared = true;
   }
 
   return {
     settings: await getLineSettingsForAdmin(),
     changed,
     recipientsCleared,
+    historyCleared,
     updatedAt: result.rows[0]?.updated_at || null
   };
 }

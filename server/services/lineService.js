@@ -1,15 +1,12 @@
-import { getActiveLineConfig } from "./lineSettingsService.js";
-
 const LINE_API_BASE = "https://api.line.me";
 
-async function lineHeaders() {
-  const lineConfig = await getActiveLineConfig();
-  if (!lineConfig.channelAccessToken) {
-    throw new Error("ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN");
+function lineHeaders(bot) {
+  if (!bot?.channel_access_token) {
+    throw new Error("ยังไม่ได้ตั้งค่า Channel access token ของ botlineOA");
   }
 
   return {
-    Authorization: `Bearer ${lineConfig.channelAccessToken}`,
+    Authorization: `Bearer ${bot.channel_access_token}`,
     "Content-Type": "application/json"
   };
 }
@@ -36,40 +33,40 @@ async function parseLineResponse(response) {
   };
 }
 
-export async function fetchUserProfile(userId) {
+export async function fetchUserProfile(bot, userId) {
   const response = await fetch(`${LINE_API_BASE}/v2/bot/profile/${userId}`, {
-    headers: await lineHeaders()
+    headers: lineHeaders(bot)
   });
   return parseLineResponse(response).then(({ body }) => body);
 }
 
-export async function fetchGroupSummary(groupId) {
+export async function fetchGroupSummary(bot, groupId) {
   const response = await fetch(`${LINE_API_BASE}/v2/bot/group/${groupId}/summary`, {
-    headers: await lineHeaders()
+    headers: lineHeaders(bot)
   });
   return parseLineResponse(response).then(({ body }) => body);
 }
 
-export async function fetchGroupMemberProfile(groupId, userId) {
+export async function fetchGroupMemberProfile(bot, groupId, userId) {
   const response = await fetch(
     `${LINE_API_BASE}/v2/bot/group/${groupId}/member/${userId}`,
-    { headers: await lineHeaders() }
+    { headers: lineHeaders(bot) }
   );
   return parseLineResponse(response).then(({ body }) => body);
 }
 
-export async function fetchRoomMemberProfile(roomId, userId) {
+export async function fetchRoomMemberProfile(bot, roomId, userId) {
   const response = await fetch(
     `${LINE_API_BASE}/v2/bot/room/${roomId}/member/${userId}`,
-    { headers: await lineHeaders() }
+    { headers: lineHeaders(bot) }
   );
   return parseLineResponse(response).then(({ body }) => body);
 }
 
-export async function pushMessage(to, messages) {
+export async function pushMessage(bot, to, messages) {
   const response = await fetch(`${LINE_API_BASE}/v2/bot/message/push`, {
     method: "POST",
-    headers: await lineHeaders(),
+    headers: lineHeaders(bot),
     body: JSON.stringify({ to, messages })
   });
   return parseLineResponse(response);

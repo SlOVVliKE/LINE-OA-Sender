@@ -9,8 +9,6 @@ export const config = {
   port: Number(readEnv("PORT", "10000")),
   appBaseUrl: readEnv("APP_BASE_URL", ""),
   databaseUrl: readEnv("DATABASE_URL", ""),
-  lineChannelAccessToken: readEnv("LINE_CHANNEL_ACCESS_TOKEN", ""),
-  lineChannelSecret: readEnv("LINE_CHANNEL_SECRET", ""),
   cloudinaryCloudName: readEnv("CLOUDINARY_CLOUD_NAME", ""),
   cloudinaryApiKey: readEnv("CLOUDINARY_API_KEY", ""),
   cloudinaryApiSecret: readEnv("CLOUDINARY_API_SECRET", ""),

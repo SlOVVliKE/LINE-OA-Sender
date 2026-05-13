@@ -7,10 +7,6 @@ databases:
 envVarGroups:
   - name: line-oa-sender-secrets
     envVars:
-      - key: LINE_CHANNEL_ACCESS_TOKEN
-        sync: false
-      - key: LINE_CHANNEL_SECRET
-        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

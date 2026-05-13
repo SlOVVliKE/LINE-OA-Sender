@@ -1,9 +1,23 @@
 import { query } from "../db/pool.js";
 import { config } from "../config/env.js";
+import { listActiveBots } from "./botLineOaService.js";
 import { isCampaignDue, normalizeTime } from "../utils/schedule.js";
 import { sendCampaignMessage } from "./deliveryService.js";
 
-export async function getDailyCampaign() {
+async function ensureCampaignForBot(botId) {
+  await query(
+    `
+      INSERT INTO daily_campaign (bot_id)
+      VALUES ($1)
+      ON CONFLICT (bot_id) DO NOTHING
+    `,
+    [botId]
+  );
+}
+
+export async function getDailyCampaign(botId) {
+  await ensureCampaignForBot(botId);
+
   const result = await query(
     `
       SELECT
@@ -11,15 +25,19 @@ export async function getDailyCampaign() {
         uploaded_images.original_url AS image_original_url,
         uploaded_images.preview_url AS image_preview_url
       FROM daily_campaign
-      LEFT JOIN uploaded_images ON uploaded_images.id = daily_campaign.image_id
-      WHERE daily_campaign.id = 1
-    `
+      LEFT JOIN uploaded_images
+        ON uploaded_images.id = daily_campaign.image_id
+        AND uploaded_images.bot_id = daily_campaign.bot_id
+      WHERE daily_campaign.bot_id = $1
+    `,
+    [botId]
   );
 
   return result.rows[0];
 }
 
 export async function saveDailyCampaign({
+  botId,
   enabled,
   sendTime,
   messageText,
@@ -27,6 +45,7 @@ export async function saveDailyCampaign({
   allRecipients,
   recipientIds
 }) {
+  await ensureCampaignForBot(botId);
   const normalizedTime = normalizeTime(sendTime);
   if (!normalizedTime) {
     throw new Error("เวลาส่งไม่ถูกต้อง");
@@ -47,7 +66,7 @@ export async function saveDailyCampaign({
         all_recipients = $6,
         recipient_ids = $7::jsonb,
         updated_at = NOW()
-      WHERE id = 1
+      WHERE bot_id = $8
       RETURNING *
     `,
     [
@@ -57,22 +76,24 @@ export async function saveDailyCampaign({
       messageText || "",
       imageId || null,
       Boolean(allRecipients),
-      JSON.stringify(ids)
+      JSON.stringify(ids),
+      botId
     ]
   );
 
   return result.rows[0];
 }
 
-export async function sendDueDailyCampaign(now = new Date()) {
-  const campaign = await getDailyCampaign();
+async function sendDueForBot(bot, now) {
+  const campaign = await getDailyCampaign(bot.id);
   const due = isCampaignDue(campaign, now);
 
   if (!due.due) {
-    return { sent: false, reason: due.reason, date: due.date || null };
+    return { botId: Number(bot.id), botName: bot.name, sent: false, reason: due.reason, date: due.date || null };
   }
 
   const result = await sendCampaignMessage({
+    botId: bot.id,
     mode: "scheduled",
     campaignId: campaign.id,
     messageText: campaign.message_text,
@@ -85,10 +106,25 @@ export async function sendDueDailyCampaign(now = new Date()) {
     `
       UPDATE daily_campaign
       SET last_sent_date = $1, updated_at = NOW()
-      WHERE id = 1
+      WHERE bot_id = $2
     `,
-    [due.date]
+    [due.date, bot.id]
   );
 
-  return { sent: true, date: due.date, result };
+  return { botId: Number(bot.id), botName: bot.name, sent: true, date: due.date, result };
+}
+
+export async function sendDueDailyCampaign(now = new Date()) {
+  const bots = await listActiveBots();
+  const results = [];
+
+  for (const bot of bots) {
+    results.push(await sendDueForBot(bot, now));
+  }
+
+  return {
+    checked: results.length,
+    sent: results.filter((item) => item.sent).length,
+    results
+  };
 }

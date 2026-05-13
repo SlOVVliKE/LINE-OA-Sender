@@ -4,11 +4,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { validateLineSignature } from "../utils/lineSignature.js";
 import { unauthorized } from "../utils/httpError.js";
 import { captureRecipientsFromEvent } from "../services/recipientService.js";
-import { getActiveLineConfig } from "../services/lineSettingsService.js";
+import { getBotByWebhookKey } from "../services/botLineOaService.js";
 
 export const webhookRouter = express.Router();
 
-async function rememberWebhookEvent(event) {
+async function rememberWebhookEvent(bot, event) {
   if (!event.webhookEventId) return true;
 
   const source = event.source || {};
@@ -16,32 +16,27 @@ async function rememberWebhookEvent(event) {
   const result = await query(
     `
       INSERT INTO webhook_events
-        (webhook_event_id, event_type, source_type, source_id)
-      VALUES ($1, $2, $3, $4)
+        (webhook_event_id, bot_id, event_type, source_type, source_id)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (webhook_event_id) DO NOTHING
       RETURNING webhook_event_id
     `,
-    [event.webhookEventId, event.type || null, source.type || null, sourceId]
+    [event.webhookEventId, bot.id, event.type || null, source.type || null, sourceId]
   );
 
   return result.rowCount > 0;
 }
 
 webhookRouter.post(
-  "/line",
+  "/line/:webhookKey",
   asyncHandler(async (req, res) => {
-    const signature = req.headers["x-line-signature"];
-    const lineConfig = await getActiveLineConfig();
-
-    if (!lineConfig.channelSecret) {
-      throw unauthorized("LINE OA settings are not configured");
+    const bot = await getBotByWebhookKey(req.params.webhookKey);
+    if (!bot) {
+      throw unauthorized("Unknown botlineOA webhook");
     }
 
-    const isValid = validateLineSignature(
-      req.rawBody,
-      signature,
-      lineConfig.channelSecret
-    );
+    const signature = req.headers["x-line-signature"];
+    const isValid = validateLineSignature(req.rawBody, signature, bot.channel_secret);
 
     if (!isValid) {
       throw unauthorized("Invalid LINE signature");
@@ -50,9 +45,9 @@ webhookRouter.post(
     const events = Array.isArray(req.body?.events) ? req.body.events : [];
 
     for (const event of events) {
-      const isNew = await rememberWebhookEvent(event);
+      const isNew = await rememberWebhookEvent(bot, event);
       if (!isNew) continue;
-      await captureRecipientsFromEvent(event);
+      await captureRecipientsFromEvent(bot, event);
     }
 
     res.json({ ok: true });

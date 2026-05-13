@@ -13,14 +13,14 @@ function fallbackName(type, lineId) {
   return `ผู้ใช้ LINE ${tail}`;
 }
 
-async function upsertRecipient({ lineId, type, displayName, pictureUrl, source }) {
+async function upsertRecipient({ bot, lineId, type, displayName, pictureUrl, source }) {
   const result = await query(
     `
       INSERT INTO recipients
-        (line_id, type, display_name, picture_url, last_source, last_seen_at, updated_at)
+        (bot_id, line_id, type, display_name, picture_url, last_source, last_seen_at, updated_at)
       VALUES
-        ($1, $2, $3, $4, $5::jsonb, NOW(), NOW())
-      ON CONFLICT (line_id) DO UPDATE SET
+        ($1, $2, $3, $4, $5, $6::jsonb, NOW(), NOW())
+      ON CONFLICT (bot_id, line_id) DO UPDATE SET
         type = EXCLUDED.type,
         display_name = EXCLUDED.display_name,
         picture_url = COALESCE(EXCLUDED.picture_url, recipients.picture_url),
@@ -31,6 +31,7 @@ async function upsertRecipient({ lineId, type, displayName, pictureUrl, source }
       RETURNING *
     `,
     [
+      bot.id,
       lineId,
       type,
       displayName || fallbackName(type, lineId),
@@ -42,23 +43,24 @@ async function upsertRecipient({ lineId, type, displayName, pictureUrl, source }
   return result.rows[0];
 }
 
-export async function upsertUserFromSource(source) {
+export async function upsertUserFromSource(bot, source) {
   if (!source?.userId) return null;
 
   let profile;
   try {
     if (source.type === "group" && source.groupId) {
-      profile = await fetchGroupMemberProfile(source.groupId, source.userId);
+      profile = await fetchGroupMemberProfile(bot, source.groupId, source.userId);
     } else if (source.type === "room" && source.roomId) {
-      profile = await fetchRoomMemberProfile(source.roomId, source.userId);
+      profile = await fetchRoomMemberProfile(bot, source.roomId, source.userId);
     } else {
-      profile = await fetchUserProfile(source.userId);
+      profile = await fetchUserProfile(bot, source.userId);
     }
   } catch {
     profile = {};
   }
 
   return upsertRecipient({
+    bot,
     lineId: source.userId,
     type: "user",
     displayName: profile.displayName || fallbackName("user", source.userId),
@@ -67,18 +69,19 @@ export async function upsertUserFromSource(source) {
   });
 }
 
-export async function upsertChatFromSource(source) {
+export async function upsertChatFromSource(bot, source) {
   if (!source) return null;
 
   if (source.type === "group" && source.groupId) {
     let summary;
     try {
-      summary = await fetchGroupSummary(source.groupId);
+      summary = await fetchGroupSummary(bot, source.groupId);
     } catch {
       summary = {};
     }
 
     return upsertRecipient({
+      bot,
       lineId: source.groupId,
       type: "group",
       displayName: summary.groupName || fallbackName("group", source.groupId),
@@ -89,6 +92,7 @@ export async function upsertChatFromSource(source) {
 
   if (source.type === "room" && source.roomId) {
     return upsertRecipient({
+      bot,
       lineId: source.roomId,
       type: "room",
       displayName: fallbackName("room", source.roomId),
@@ -100,41 +104,45 @@ export async function upsertChatFromSource(source) {
   return null;
 }
 
-export async function captureRecipientsFromEvent(event) {
+export async function captureRecipientsFromEvent(bot, event) {
   const source = event?.source;
   if (!source) return [];
 
   const captured = [];
-  const chat = await upsertChatFromSource(source);
+  const chat = await upsertChatFromSource(bot, source);
   if (chat) captured.push(chat);
 
-  const user = await upsertUserFromSource(source);
+  const user = await upsertUserFromSource(bot, source);
   if (user) captured.push(user);
 
   return captured;
 }
 
-export async function listRecipients() {
+export async function listRecipients(botId) {
   const result = await query(
     `
       SELECT id, line_id, type, display_name, picture_url, last_seen_at, is_active
       FROM recipients
       WHERE is_active = TRUE
+        AND bot_id = $1
       ORDER BY type ASC, display_name ASC
-    `
+    `,
+    [botId]
   );
   return result.rows;
 }
 
-export async function resolveRecipients({ allRecipients, recipientIds }) {
+export async function resolveRecipients({ botId, allRecipients, recipientIds }) {
   if (allRecipients) {
     const result = await query(
       `
         SELECT *
         FROM recipients
         WHERE is_active = TRUE
+          AND bot_id = $1
         ORDER BY type ASC, display_name ASC
-      `
+      `,
+      [botId]
     );
     return result.rows;
   }
@@ -150,10 +158,11 @@ export async function resolveRecipients({ allRecipients, recipientIds }) {
       SELECT *
       FROM recipients
       WHERE is_active = TRUE
-        AND id = ANY($1::bigint[])
+        AND bot_id = $1
+        AND id = ANY($2::bigint[])
       ORDER BY type ASC, display_name ASC
     `,
-    [ids]
+    [botId, ids]
   );
   return result.rows;
 }

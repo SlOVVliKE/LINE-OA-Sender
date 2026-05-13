@@ -1,9 +1,10 @@
 import { query } from "../db/pool.js";
+import { getBotById } from "./botLineOaService.js";
 import { buildLineMessages } from "./messageBuilder.js";
 import { pushMessage } from "./lineService.js";
 import { resolveRecipients } from "./recipientService.js";
 
-export async function getImage(imageId) {
+export async function getImage(botId, imageId) {
   if (!imageId) return null;
 
   const result = await query(
@@ -11,13 +12,15 @@ export async function getImage(imageId) {
       SELECT *
       FROM uploaded_images
       WHERE id = $1
+        AND bot_id = $2
     `,
-    [imageId]
+    [imageId, botId]
   );
   return result.rows[0] || null;
 }
 
 async function logDelivery({
+  botId,
   campaignId,
   mode,
   recipient,
@@ -31,6 +34,7 @@ async function logDelivery({
     `
       INSERT INTO delivery_logs
         (
+          bot_id,
           campaign_id,
           mode,
           recipient_id,
@@ -43,9 +47,10 @@ async function logDelivery({
           error_message,
           request_id
         )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `,
     [
+      botId,
       campaignId || null,
       mode,
       recipient?.id || null,
@@ -62,6 +67,7 @@ async function logDelivery({
 }
 
 export async function sendCampaignMessage({
+  botId,
   mode,
   campaignId = null,
   messageText = "",
@@ -69,14 +75,15 @@ export async function sendCampaignMessage({
   allRecipients = false,
   recipientIds = []
 }) {
-  const image = await getImage(imageId);
+  const bot = await getBotById(botId);
+  const image = await getImage(botId, imageId);
   const messages = buildLineMessages({ messageText, image });
 
   if (!messages.length) {
     throw new Error("ต้องมีข้อความหรือรูปภาพอย่างน้อยหนึ่งอย่าง");
   }
 
-  const recipients = await resolveRecipients({ allRecipients, recipientIds });
+  const recipients = await resolveRecipients({ botId, allRecipients, recipientIds });
 
   if (!recipients.length) {
     throw new Error("ยังไม่มีผู้รับที่เลือกได้");
@@ -86,8 +93,9 @@ export async function sendCampaignMessage({
 
   for (const recipient of recipients) {
     try {
-      const response = await pushMessage(recipient.line_id, messages);
+      const response = await pushMessage(bot, recipient.line_id, messages);
       await logDelivery({
+        botId,
         campaignId,
         mode,
         recipient,
@@ -99,6 +107,7 @@ export async function sendCampaignMessage({
       results.push({ recipientId: recipient.id, status: "success" });
     } catch (error) {
       await logDelivery({
+        botId,
         campaignId,
         mode,
         recipient,
@@ -123,7 +132,7 @@ export async function sendCampaignMessage({
   };
 }
 
-export async function listDeliveryLogs(limit = 50) {
+export async function listDeliveryLogs(botId, limit = 50) {
   const result = await query(
     `
       SELECT
@@ -135,10 +144,11 @@ export async function listDeliveryLogs(limit = 50) {
         error_message,
         sent_at
       FROM delivery_logs
+      WHERE bot_id = $1
       ORDER BY sent_at DESC
-      LIMIT $1
+      LIMIT $2
     `,
-    [limit]
+    [botId, limit]
   );
 
   return result.rows;

@@ -13,8 +13,8 @@ function sign(payload, secret) {
     .digest("base64url");
 }
 
-export function createSessionToken(secret, now = Date.now()) {
-  const payload = base64Url(JSON.stringify({ iat: now }));
+export function createSessionToken(secret, session = {}, now = Date.now()) {
+  const payload = base64Url(JSON.stringify({ ...session, iat: now }));
   return `${payload}.${sign(payload, secret)}`;
 }
 
@@ -35,7 +35,10 @@ export function verifySessionToken(token, secret, now = Date.now()) {
 
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return Number.isFinite(data.iat) && now - data.iat <= SESSION_TTL_MS;
+    if (!Number.isFinite(data.iat) || now - data.iat > SESSION_TTL_MS) {
+      return false;
+    }
+    return data;
   } catch {
     return false;
   }

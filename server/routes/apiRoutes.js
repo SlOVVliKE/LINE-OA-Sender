@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { query } from "../db/pool.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAdmin, requireAuth, requireUserOa } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { badRequest } from "../utils/httpError.js";
 import { listRecipients } from "../services/recipientService.js";
@@ -16,9 +16,19 @@ import {
   sendDueDailyCampaign
 } from "../services/campaignService.js";
 import {
-  getLineSettingsForAdmin,
-  saveLineSettings
-} from "../services/lineSettingsService.js";
+  assertUserCanAccessBot,
+  createBotLineOa,
+  deleteBotLineOa,
+  listAdminBots,
+  listAssignedBots,
+  updateBotLineOa
+} from "../services/botLineOaService.js";
+import {
+  createUserOaAccount,
+  deleteUserOaAccount,
+  listUserOaAccounts,
+  updateUserOaAccount
+} from "../services/userOaService.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -32,36 +42,104 @@ export const apiRouter = express.Router();
 apiRouter.use(requireAuth);
 
 apiRouter.get(
-  "/line-settings",
+  "/admin/bots",
+  requireAdmin,
   asyncHandler(async (_req, res) => {
-    const settings = await getLineSettingsForAdmin();
-    res.json({ settings });
+    res.json({ bots: await listAdminBots() });
+  })
+);
+
+apiRouter.post(
+  "/admin/bots",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const bot = await createBotLineOa(req.body || {});
+    res.json({ bot });
   })
 );
 
 apiRouter.put(
-  "/line-settings",
+  "/admin/bots/:id",
+  requireAdmin,
   asyncHandler(async (req, res) => {
-    const result = await saveLineSettings({
-      channelAccessToken: req.body?.channelAccessToken,
-      channelSecret: req.body?.channelSecret,
-      clearRecipientsOnChange: Boolean(req.body?.clearRecipientsOnChange)
-    });
+    const bot = await updateBotLineOa(req.params.id, req.body || {});
+    res.json({ bot });
+  })
+);
 
-    res.json(result);
+apiRouter.delete(
+  "/admin/bots/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await deleteBotLineOa(req.params.id));
   })
 );
 
 apiRouter.get(
-  "/recipients",
+  "/admin/users",
+  requireAdmin,
   asyncHandler(async (_req, res) => {
-    const recipients = await listRecipients();
+    res.json({ users: await listUserOaAccounts() });
+  })
+);
+
+apiRouter.post(
+  "/admin/users",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const user = await createUserOaAccount(req.body || {});
+    res.json({ user });
+  })
+);
+
+apiRouter.put(
+  "/admin/users/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const user = await updateUserOaAccount(req.params.id, req.body || {});
+    res.json({ user });
+  })
+);
+
+apiRouter.delete(
+  "/admin/users/:id",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await deleteUserOaAccount(req.params.id));
+  })
+);
+
+apiRouter.get(
+  "/bots",
+  requireUserOa,
+  asyncHandler(async (req, res) => {
+    const bots = await listAssignedBots(req.session.userId);
+    res.json({ bots });
+  })
+);
+
+apiRouter.use(
+  "/bots/:botId",
+  requireUserOa,
+  asyncHandler(async (req, _res, next) => {
+    const botId = Number(req.params.botId);
+    if (!Number.isFinite(botId)) throw badRequest("botlineOA ไม่ถูกต้อง");
+    await assertUserCanAccessBot(req.session, botId);
+    req.botId = botId;
+    next();
+  })
+);
+
+apiRouter.get(
+  "/bots/:botId/recipients",
+  asyncHandler(async (req, res) => {
+    const recipients = await listRecipients(req.botId);
     res.json({ recipients });
   })
 );
 
 apiRouter.post(
-  "/upload",
+  "/bots/:botId/upload",
   upload.single("image"),
   asyncHandler(async (req, res) => {
     const error = validateUpload(req.file);
@@ -71,11 +149,12 @@ apiRouter.post(
     const result = await query(
       `
         INSERT INTO uploaded_images
-          (public_id, original_url, preview_url, bytes, format, width, height)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+          (bot_id, public_id, original_url, preview_url, bytes, format, width, height)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `,
       [
+        req.botId,
         uploaded.publicId,
         uploaded.originalUrl,
         uploaded.previewUrl,
@@ -91,17 +170,18 @@ apiRouter.post(
 );
 
 apiRouter.get(
-  "/campaign",
-  asyncHandler(async (_req, res) => {
-    const campaign = await getDailyCampaign();
+  "/bots/:botId/campaign",
+  asyncHandler(async (req, res) => {
+    const campaign = await getDailyCampaign(req.botId);
     res.json({ campaign });
   })
 );
 
 apiRouter.put(
-  "/campaign",
+  "/bots/:botId/campaign",
   asyncHandler(async (req, res) => {
     const campaign = await saveDailyCampaign({
+      botId: req.botId,
       enabled: req.body?.enabled,
       sendTime: req.body?.sendTime,
       messageText: req.body?.messageText,
@@ -115,9 +195,10 @@ apiRouter.put(
 );
 
 apiRouter.post(
-  "/send",
+  "/bots/:botId/send",
   asyncHandler(async (req, res) => {
     const result = await sendCampaignMessage({
+      botId: req.botId,
       mode: "manual",
       messageText: req.body?.messageText || "",
       imageId: req.body?.imageId || null,
@@ -130,16 +211,17 @@ apiRouter.post(
 );
 
 apiRouter.get(
-  "/history",
+  "/bots/:botId/history",
   asyncHandler(async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const logs = await listDeliveryLogs(limit);
+    const logs = await listDeliveryLogs(req.botId, limit);
     res.json({ logs });
   })
 );
 
 apiRouter.post(
   "/send-due",
+  requireAdmin,
   asyncHandler(async (_req, res) => {
     const result = await sendDueDailyCampaign();
     res.json(result);

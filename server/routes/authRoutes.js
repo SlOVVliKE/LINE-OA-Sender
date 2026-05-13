@@ -1,43 +1,31 @@
 import express from "express";
-import crypto from "node:crypto";
-import { config } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { badRequest, unauthorized } from "../utils/httpError.js";
 import {
   clearSessionCookie,
+  getSession,
   isAuthenticated,
   issueSessionCookie
 } from "../middleware/auth.js";
+import { authenticatePassword } from "../services/userOaService.js";
 
 export const authRouter = express.Router();
 
-function safeEqual(a, b) {
-  const left = Buffer.from(a || "");
-  const right = Buffer.from(b || "");
-  return (
-    left.length === right.length &&
-    crypto.timingSafeEqual(left, right)
-  );
-}
-
 authRouter.get("/session", (req, res) => {
-  res.json({ authenticated: isAuthenticated(req) });
+  const session = getSession(req);
+  res.json({
+    authenticated: isAuthenticated(req),
+    role: session?.role || null,
+    userId: session?.userId || null,
+    displayName: session?.displayName || null
+  });
 });
 
 authRouter.post(
   "/login",
   asyncHandler(async (req, res) => {
-    const password = req.body?.password;
-    if (typeof password !== "string") {
-      throw badRequest("กรุณากรอกรหัสผ่าน");
-    }
-
-    if (!safeEqual(password, config.adminPassword)) {
-      throw unauthorized("รหัสผ่านไม่ถูกต้อง");
-    }
-
-    issueSessionCookie(res);
-    res.json({ ok: true });
+    const session = await authenticatePassword(req.body?.password);
+    issueSessionCookie(res, session);
+    res.json({ ok: true, session });
   })
 );
 

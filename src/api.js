@@ -32,30 +32,58 @@ export const api = {
       method: "POST",
       body: JSON.stringify({})
     }),
-  lineSettings: () => request("/api/line-settings"),
-  saveLineSettings: (payload) =>
-    request("/api/line-settings", {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    }),
-  recipients: () => request("/api/recipients"),
-  campaign: () => request("/api/campaign"),
-  saveCampaign: (payload) =>
-    request("/api/campaign", {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    }),
-  sendNow: (payload) =>
-    request("/api/send", {
+
+  adminBots: () => request("/api/admin/bots"),
+  createAdminBot: (payload) =>
+    request("/api/admin/bots", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  history: () => request("/api/history?limit=50"),
-  uploadImage: async (file) => {
+  updateAdminBot: (id, payload) =>
+    request(`/api/admin/bots/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteAdminBot: (id) =>
+    request(`/api/admin/bots/${id}`, {
+      method: "DELETE"
+    }),
+
+  adminUsers: () => request("/api/admin/users"),
+  createAdminUser: (payload) =>
+    request("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateAdminUser: (id, payload) =>
+    request(`/api/admin/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteAdminUser: (id) =>
+    request(`/api/admin/users/${id}`, {
+      method: "DELETE"
+    }),
+
+  assignedBots: () => request("/api/bots"),
+  recipients: (botId) => request(`/api/bots/${botId}/recipients`),
+  campaign: (botId) => request(`/api/bots/${botId}/campaign`),
+  saveCampaign: (botId, payload) =>
+    request(`/api/bots/${botId}/campaign`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  sendNow: (botId, payload) =>
+    request(`/api/bots/${botId}/send`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  history: (botId) => request(`/api/bots/${botId}/history?limit=50`),
+  uploadImage: async (botId, file) => {
     const formData = new FormData();
     formData.append("image", file);
 
-    const response = await fetch("/api/upload", {
+    const response = await fetch(`/api/bots/${botId}/upload`, {
       method: "POST",
       credentials: "include",
       body: formData

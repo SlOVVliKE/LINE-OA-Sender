@@ -78,7 +78,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  history: (botId) => request(`/api/bots/${botId}/history?limit=50`),
+  history: (botId) => request(`/api/bots/${botId}/history?limit=200`),
   uploadImage: async (botId, file) => {
     const formData = new FormData();
     formData.append("image", file);

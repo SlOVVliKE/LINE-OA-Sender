@@ -213,7 +213,7 @@ apiRouter.post(
 apiRouter.get(
   "/bots/:botId/history",
   asyncHandler(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
     const logs = await listDeliveryLogs(req.botId, limit);
     res.json({ logs });
   })

@@ -907,6 +907,7 @@ function UserDashboard({ session, onLogout }) {
                   <span>ผู้รับ</span>
                   <span>ประเภท</span>
                   <span>สถานะ</span>
+                  <span>สาเหตุ</span>
                 </div>
                 {history.length ? (
                   history.map((item) => (
@@ -916,6 +917,9 @@ function UserDashboard({ session, onLogout }) {
                       <span><RecipientBadge type={item.recipient_type} /></span>
                       <span className={`status-pill ${item.status}`}>
                         {item.status === "success" ? "สำเร็จ" : "ไม่สำเร็จ"}
+                      </span>
+                      <span className="history-error">
+                        {item.status === "failed" ? item.error_message || "-" : "-"}
                       </span>
                     </div>
                   ))

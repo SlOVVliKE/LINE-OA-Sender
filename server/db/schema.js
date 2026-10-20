@@ -76,8 +76,17 @@ export async function ensureSchema() {
       image_id BIGINT REFERENCES uploaded_images(id) ON DELETE SET NULL,
       all_recipients BOOLEAN NOT NULL DEFAULT TRUE,
       recipient_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      mention_user_ids JSONB NOT NULL DEFAULT '{}'::jsonb,
       last_sent_date TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS group_members (
+      bot_id BIGINT NOT NULL REFERENCES bot_line_oas(id) ON DELETE CASCADE,
+      group_recipient_id BIGINT NOT NULL REFERENCES recipients(id) ON DELETE CASCADE,
+      member_recipient_id BIGINT NOT NULL REFERENCES recipients(id) ON DELETE CASCADE,
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (bot_id, group_recipient_id, member_recipient_id)
     );
 
     CREATE TABLE IF NOT EXISTS delivery_logs (
@@ -116,6 +125,7 @@ export async function ensureSchema() {
     ALTER TABLE daily_campaign ADD COLUMN IF NOT EXISTS bot_id BIGINT REFERENCES bot_line_oas(id) ON DELETE CASCADE;
     ALTER TABLE delivery_logs ADD COLUMN IF NOT EXISTS bot_id BIGINT REFERENCES bot_line_oas(id) ON DELETE SET NULL;
     ALTER TABLE webhook_events ADD COLUMN IF NOT EXISTS bot_id BIGINT REFERENCES bot_line_oas(id) ON DELETE CASCADE;
+    ALTER TABLE daily_campaign ADD COLUMN IF NOT EXISTS mention_user_ids JSONB NOT NULL DEFAULT '{}'::jsonb;
     ALTER TABLE daily_campaign DROP CONSTRAINT IF EXISTS daily_campaign_id_check;
     ALTER TABLE recipients DROP CONSTRAINT IF EXISTS recipients_line_id_key;
     CREATE SEQUENCE IF NOT EXISTS daily_campaign_id_seq;
@@ -151,6 +161,8 @@ export async function ensureSchema() {
       ON daily_campaign(bot_id);
     CREATE INDEX IF NOT EXISTS recipients_bot_type_display_name_idx
       ON recipients(bot_id, type, display_name);
+    CREATE INDEX IF NOT EXISTS group_members_bot_group_idx
+      ON group_members(bot_id, group_recipient_id);
     CREATE INDEX IF NOT EXISTS delivery_logs_bot_sent_at_idx
       ON delivery_logs(bot_id, sent_at DESC);
     CREATE INDEX IF NOT EXISTS uploaded_images_bot_created_at_idx

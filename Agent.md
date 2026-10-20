@@ -52,8 +52,10 @@ LINE OA Sender is a Render-hosted web app for sending text and image messages th
 ## LINE Constraints
 
 - LINE OA cannot push to arbitrary users. It can push only to users/groups/rooms the bot is allowed to message.
-- “Send all” means all active recipients known by webhook for the selected botlineOA.
+- “Send all groups” means active group chats known by webhook for the selected botlineOA.
 - Personal LINE bulk friend adding is out of scope.
+- User sends and daily campaigns target group recipients only. Group membership for mentions is learned from webhook events and scoped to both `bot_id` and group recipient.
+- LINE text v2 mentions are limited to 20 members per group message; validate selected member IDs against the observed group membership before sending.
 
 ## Commands
 

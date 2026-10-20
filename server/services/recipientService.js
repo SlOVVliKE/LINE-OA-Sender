@@ -115,7 +115,92 @@ export async function captureRecipientsFromEvent(bot, event) {
   const user = await upsertUserFromSource(bot, source);
   if (user) captured.push(user);
 
+  if (source.type === "group" && chat && user) {
+    await query(
+      `
+        INSERT INTO group_members (bot_id, group_recipient_id, member_recipient_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (bot_id, group_recipient_id, member_recipient_id)
+        DO UPDATE SET last_seen_at = NOW()
+      `,
+      [bot.id, chat.id, user.id]
+    );
+  }
+
   return captured;
+}
+
+export async function listGroupMembers(botId) {
+  const result = await query(
+    `
+      SELECT
+        gm.group_recipient_id,
+        groups.line_id AS group_line_id,
+        groups.display_name AS group_name,
+        members.line_id AS user_line_id,
+        members.display_name AS user_name,
+        members.picture_url,
+        gm.last_seen_at
+      FROM group_members gm
+      INNER JOIN recipients groups
+        ON groups.id = gm.group_recipient_id
+        AND groups.bot_id = gm.bot_id
+        AND groups.type = 'group'
+        AND groups.is_active = TRUE
+      INNER JOIN recipients members
+        ON members.id = gm.member_recipient_id
+        AND members.bot_id = gm.bot_id
+        AND members.type = 'user'
+        AND members.is_active = TRUE
+      WHERE gm.bot_id = $1
+      ORDER BY groups.display_name, members.display_name
+    `,
+    [botId]
+  );
+  return result.rows;
+}
+
+export async function deactivateGroup(botId, groupLineId) {
+  if (!groupLineId) return;
+  await query(
+    `
+      UPDATE recipients
+      SET is_active = FALSE, updated_at = NOW()
+      WHERE bot_id = $1 AND line_id = $2 AND type = 'group'
+    `,
+    [botId, groupLineId]
+  );
+  await query(
+    `
+      DELETE FROM group_members gm
+      USING recipients groups
+      WHERE gm.bot_id = $1
+        AND gm.group_recipient_id = groups.id
+        AND groups.bot_id = $1
+        AND groups.line_id = $2
+        AND groups.type = 'group'
+    `,
+    [botId, groupLineId]
+  );
+}
+
+export async function removeGroupMembers(botId, groupLineId, memberLineIds = []) {
+  if (!groupLineId || !memberLineIds.length) return;
+  await query(
+    `
+      DELETE FROM group_members gm
+      USING recipients groups, recipients members
+      WHERE gm.bot_id = $1
+        AND gm.group_recipient_id = groups.id
+        AND groups.bot_id = $1
+        AND groups.line_id = $2
+        AND groups.type = 'group'
+        AND gm.member_recipient_id = members.id
+        AND members.bot_id = $1
+        AND members.line_id = ANY($3::text[])
+    `,
+    [botId, groupLineId, memberLineIds]
+  );
 }
 
 export async function listRecipients(botId) {
@@ -140,6 +225,7 @@ export async function resolveRecipients({ botId, allRecipients, recipientIds }) 
         FROM recipients
         WHERE is_active = TRUE
           AND bot_id = $1
+          AND type = 'group'
         ORDER BY type ASC, display_name ASC
       `,
       [botId]
@@ -159,6 +245,7 @@ export async function resolveRecipients({ botId, allRecipients, recipientIds }) 
       FROM recipients
       WHERE is_active = TRUE
         AND bot_id = $1
+        AND type = 'group'
         AND id = ANY($2::bigint[])
       ORDER BY type ASC, display_name ASC
     `,

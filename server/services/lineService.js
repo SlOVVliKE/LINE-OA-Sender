@@ -24,7 +24,9 @@ async function parseLineResponse(response) {
 
   if (!response.ok) {
     const detail = body.message || body.raw || response.statusText;
-    throw new Error(`LINE API ${response.status}: ${detail}`);
+    const error = new Error(`LINE API ${response.status}: ${detail}`);
+    error.status = response.status;
+    throw error;
   }
 
   return {
@@ -41,7 +43,7 @@ export async function fetchUserProfile(bot, userId) {
 }
 
 export async function fetchGroupSummary(bot, groupId) {
-  const response = await fetch(`${LINE_API_BASE}/v2/bot/group/${groupId}/summary`, {
+  const response = await fetch(`${LINE_API_BASE}/v2/bot/group/${encodeURIComponent(groupId)}/summary`, {
     headers: lineHeaders(bot)
   });
   return parseLineResponse(response).then(({ body }) => body);

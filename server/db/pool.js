@@ -11,9 +11,7 @@ export function getPool() {
   if (!pool) {
     pool = new pg.Pool({
       connectionString: config.databaseUrl,
-      ssl: config.databaseUrl.includes("localhost")
-        ? false
-        : { rejectUnauthorized: false }
+      ssl: config.databaseSsl ? { rejectUnauthorized: false } : false
     });
   }
 

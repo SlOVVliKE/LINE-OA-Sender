@@ -67,6 +67,7 @@ export const api = {
 
   assignedBots: () => request("/api/bots"),
   recipients: (botId) => request(`/api/bots/${botId}/recipients`),
+  groupMembers: (botId) => request(`/api/bots/${botId}/group-members`),
   campaign: (botId) => request(`/api/bots/${botId}/campaign`),
   saveCampaign: (botId, payload) =>
     request(`/api/bots/${botId}/campaign`, {

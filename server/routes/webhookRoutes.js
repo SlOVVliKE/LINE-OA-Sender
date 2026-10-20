@@ -3,7 +3,11 @@ import { query } from "../db/pool.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validateLineSignature } from "../utils/lineSignature.js";
 import { unauthorized } from "../utils/httpError.js";
-import { captureRecipientsFromEvent } from "../services/recipientService.js";
+import {
+  captureRecipientsFromEvent,
+  deactivateGroup,
+  removeGroupMembers
+} from "../services/recipientService.js";
 import { getBotByWebhookKey } from "../services/botLineOaService.js";
 
 export const webhookRouter = express.Router();
@@ -47,7 +51,30 @@ webhookRouter.post(
     for (const event of events) {
       const isNew = await rememberWebhookEvent(bot, event);
       if (!isNew) continue;
+
+      const source = event.source || {};
+      const groupId = source.type === "group" ? source.groupId : null;
+      if (event.type === "leave" && groupId) {
+        await deactivateGroup(bot.id, groupId);
+        continue;
+      }
+      if (event.type === "memberLeft" && groupId) {
+        const memberIds = (event.left?.members || [])
+          .map((member) => member.userId)
+          .filter(Boolean);
+        await removeGroupMembers(bot.id, groupId, memberIds);
+      }
       await captureRecipientsFromEvent(bot, event);
+
+      if (event.type === "memberJoined" && source.type === "group") {
+        for (const member of event.joined?.members || []) {
+          if (!member.userId) continue;
+          await captureRecipientsFromEvent(bot, {
+            ...event,
+            source: { ...source, userId: member.userId }
+          });
+        }
+      }
     }
 
     res.json({ ok: true });

@@ -4,7 +4,7 @@ import { query } from "../db/pool.js";
 import { requireAdmin, requireAuth, requireUserOa } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { badRequest } from "../utils/httpError.js";
-import { listRecipients } from "../services/recipientService.js";
+import { listGroupMembers, listRecipients } from "../services/recipientService.js";
 import {
   listDeliveryLogs,
   sendCampaignMessage
@@ -138,6 +138,14 @@ apiRouter.get(
   })
 );
 
+apiRouter.get(
+  "/bots/:botId/group-members",
+  asyncHandler(async (req, res) => {
+    const members = await listGroupMembers(req.botId);
+    res.json({ members });
+  })
+);
+
 apiRouter.post(
   "/bots/:botId/upload",
   upload.single("image"),
@@ -187,7 +195,8 @@ apiRouter.put(
       messageText: req.body?.messageText,
       imageId: req.body?.imageId,
       allRecipients: req.body?.allRecipients,
-      recipientIds: req.body?.recipientIds
+      recipientIds: req.body?.recipientIds,
+      mentionUserIds: req.body?.mentionUserIds
     });
 
     res.json({ campaign });
@@ -203,7 +212,8 @@ apiRouter.post(
       messageText: req.body?.messageText || "",
       imageId: req.body?.imageId || null,
       allRecipients: Boolean(req.body?.allRecipients),
-      recipientIds: req.body?.recipientIds || []
+      recipientIds: req.body?.recipientIds || [],
+      mentionUserIds: req.body?.mentionUserIds || {}
     });
 
     res.json(result);

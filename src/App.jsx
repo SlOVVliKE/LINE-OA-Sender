@@ -72,7 +72,7 @@ function Login({ onLoggedIn }) {
             placeholder="กรอกรหัสผ่าน"
           />
         </label>
-        {error ? <p className="error-text">{error}</p> : null}
+          {error ? <p className="error-text" role="alert">{error}</p> : null}
         <button className="primary-button" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={18} /> : <Shield size={18} />}
           เข้าสู่ระบบ
@@ -118,7 +118,7 @@ function Header({ title, subtitle, onRefresh, onLogout, children }) {
       <div className="topbar-actions">
         {children}
         {onRefresh ? (
-          <button className="icon-button" onClick={onRefresh} aria-label="refresh">
+          <button className="icon-button" onClick={onRefresh} aria-label="โหลดข้อมูลใหม่">
             <RefreshCw size={18} />
           </button>
         ) : null}
@@ -306,7 +306,7 @@ function AdminDashboard({ session, onLogout }) {
         />
 
         {(status || error) && (
-          <div className={`notice ${error ? "error" : "success"}`}>
+          <div className={`notice ${error ? "error" : "success"}`} role={error ? "alert" : "status"}>
             {error || status}
           </div>
         )}
@@ -446,6 +446,7 @@ function AdminDashboard({ session, onLogout }) {
                 value={botSearch}
                 onChange={(event) => setBotSearch(event.target.value)}
                 placeholder="ค้นหา botlineOA"
+                aria-label="ค้นหา botlineOA ด้วยชื่อ"
               />
             </label>
           </div>
@@ -551,6 +552,8 @@ function UserDashboard({ session, onLogout }) {
   const [bots, setBots] = useState([]);
   const [selectedBotId, setSelectedBotId] = useState("");
   const [recipients, setRecipients] = useState([]);
+  const [groupMembers, setGroupMembers] = useState({});
+  const [mentionUserIds, setMentionUserIds] = useState({});
   const [history, setHistory] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
@@ -574,13 +577,21 @@ function UserDashboard({ session, onLogout }) {
 
   async function loadBotData(botId = selectedBotId) {
     if (!botId) return;
-    const [recipientData, campaignData, historyData] = await Promise.all([
+    const [recipientData, memberData, campaignData, historyData] = await Promise.all([
       api.recipients(botId),
+      api.groupMembers(botId),
       api.campaign(botId),
       api.history(botId)
     ]);
 
     setRecipients(recipientData.recipients || []);
+    const membersByGroup = {};
+    for (const member of memberData.members || []) {
+      const groupId = String(member.group_recipient_id);
+      membersByGroup[groupId] ||= [];
+      membersByGroup[groupId].push(member);
+    }
+    setGroupMembers(membersByGroup);
     setHistory(historyData.logs || []);
 
     const campaign = campaignData.campaign;
@@ -590,6 +601,7 @@ function UserDashboard({ session, onLogout }) {
       setScheduleEnabled(Boolean(campaign.enabled));
       setAllRecipients(Boolean(campaign.all_recipients));
       setSelectedIds(Array.isArray(campaign.recipient_ids) ? campaign.recipient_ids.map(Number) : []);
+      setMentionUserIds(campaign.mention_user_ids || {});
 
       if (campaign.image_id) {
         setSelectedImage({
@@ -617,7 +629,7 @@ function UserDashboard({ session, onLogout }) {
 
   const filteredRecipients = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    return recipients.filter((recipient) => {
+    return recipients.filter((recipient) => recipient.type === "group").filter((recipient) => {
       const matchType = filter === "all" || recipient.type === filter;
       const matchSearch = !keyword || recipient.display_name.toLowerCase().includes(keyword);
       return matchType && matchSearch;
@@ -625,7 +637,11 @@ function UserDashboard({ session, onLogout }) {
   }, [filter, recipients, search]);
 
   const selectedBot = bots.find((botItem) => String(botItem.id) === String(selectedBotId));
-  const selectedCount = allRecipients ? recipients.length : selectedIds.length;
+  const groups = recipients.filter((recipient) => recipient.type === "group");
+  const selectedGroups = allRecipients
+    ? groups
+    : groups.filter((group) => selectedIds.includes(Number(group.id)));
+  const selectedCount = allRecipients ? groups.length : selectedIds.length;
   const groupCount = recipients.filter((recipient) => recipient.type === "group").length;
   const userCount = recipients.filter((recipient) => recipient.type === "user").length;
   const successToday = history.filter((item) => item.status === "success").length;
@@ -639,6 +655,17 @@ function UserDashboard({ session, onLogout }) {
         ? current.filter((value) => value !== id)
         : [...current, id]
     );
+  }
+
+  function toggleMention(groupId, userLineId) {
+    const key = String(groupId);
+    setMentionUserIds((current) => {
+      const selected = current[key] || [];
+      const next = selected.includes(userLineId)
+        ? selected.filter((id) => id !== userLineId)
+        : selected.length < 20 ? [...selected, userLineId] : selected;
+      return { ...current, [key]: next };
+    });
   }
 
   async function upload(event) {
@@ -666,7 +693,10 @@ function UserDashboard({ session, onLogout }) {
       messageText,
       imageId: selectedImage?.id || null,
       allRecipients,
-      recipientIds: allRecipients ? [] : selectedIds
+      recipientIds: allRecipients ? [] : selectedIds,
+      mentionUserIds: Object.fromEntries(
+        selectedGroups.map((group) => [String(group.id), mentionUserIds[String(group.id)] || []])
+      )
     };
   }
 
@@ -722,6 +752,7 @@ function UserDashboard({ session, onLogout }) {
         >
           <select
             className="bot-select"
+            aria-label="เลือก LINE OA"
             value={selectedBotId}
             onChange={(event) => setSelectedBotId(event.target.value)}
           >
@@ -749,7 +780,7 @@ function UserDashboard({ session, onLogout }) {
             </section>
 
             {(status || error) && (
-              <div className={`notice ${error ? "error" : "success"}`}>
+              <div className={`notice ${error ? "error" : "success"}`} role={error ? "alert" : "status"}>
                 {error || status}
               </div>
             )}
@@ -800,9 +831,8 @@ function UserDashboard({ session, onLogout }) {
                   </div>
                 </div>
 
-                <div className="segmented">
-                  <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>ทั้งหมด</button>
-                  <button className={filter === "user" ? "active" : ""} onClick={() => setFilter("user")}>ผู้ใช้</button>
+                <div className="segmented groups-only">
+                  <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>ทุกกลุ่ม</button>
                   <button className={filter === "group" ? "active" : ""} onClick={() => setFilter("group")}>กลุ่ม</button>
                 </div>
 
@@ -812,6 +842,7 @@ function UserDashboard({ session, onLogout }) {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="ค้นหาด้วยชื่อ"
+                    aria-label="ค้นหากลุ่มด้วยชื่อ"
                   />
                 </label>
 
@@ -821,7 +852,7 @@ function UserDashboard({ session, onLogout }) {
                     checked={allRecipients}
                     onChange={(event) => setAllRecipients(event.target.checked)}
                   />
-                  <span>ส่งให้ทั้งหมดที่ bot นี้รู้จัก ({recipients.length})</span>
+                  <span>ส่งทุกกลุ่มที่ bot นี้อยู่ ({groups.length})</span>
                 </label>
 
                 <div className="recipient-list">
@@ -846,10 +877,42 @@ function UserDashboard({ session, onLogout }) {
                   ) : (
                     <div className="empty-state">
                       <UsersRound size={24} />
-                      <p>ยังไม่มีผู้รับจาก webhook ของ bot นี้</p>
+                      <p>ยังไม่พบกลุ่มจาก webhook ของ bot นี้</p>
                     </div>
                   )}
                 </div>
+                {selectedGroups.length > 0 && (
+                  <div className="mention-groups">
+                    <strong>แท็กสมาชิกในกลุ่ม (เลือกได้ไม่เกิน 20 คนต่อกลุ่ม)</strong>
+                    {selectedGroups.map((group) => {
+                      const members = groupMembers[String(group.id)] || [];
+                      const selectedMemberIds = mentionUserIds[String(group.id)] || [];
+                      return (
+                        <details className="mention-group" key={group.id}>
+                          <summary>{group.display_name} · แท็ก {selectedMemberIds.length} คน</summary>
+                          {members.length ? (
+                            <div className="mention-member-list">
+                              {members.map((member) => (
+                                <label className="check-row assignment-row" key={member.user_line_id}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedMemberIds.includes(member.user_line_id)}
+                                    disabled={!selectedMemberIds.includes(member.user_line_id) && selectedMemberIds.length >= 20}
+                                    onChange={() => toggleMention(group.id, member.user_line_id)}
+                                  />
+                                  {member.picture_url ? <img src={member.picture_url} alt="" /> : null}
+                                  <span>{member.user_name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="muted-text">สมาชิกจะแสดงหลังจากส่งข้อความในกลุ่มให้บอทเห็น</p>
+                          )}
+                        </details>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="selection-footer">เลือกอยู่ {selectedCount} รายการ</div>
               </section>
 
@@ -912,13 +975,13 @@ function UserDashboard({ session, onLogout }) {
                 {history.length ? (
                   history.map((item) => (
                     <div className="history-row" key={item.id}>
-                      <span>{formatDateTime(item.sent_at)}</span>
-                      <span>{item.recipient_display_name}</span>
-                      <span><RecipientBadge type={item.recipient_type} /></span>
-                      <span className={`status-pill ${item.status}`}>
+                      <span data-label="เวลา">{formatDateTime(item.sent_at)}</span>
+                      <span data-label="ผู้รับ">{item.recipient_display_name}</span>
+                      <span data-label="ประเภท"><RecipientBadge type={item.recipient_type} /></span>
+                      <span data-label="สถานะ" className={`status-pill ${item.status}`}>
                         {item.status === "success" ? "สำเร็จ" : "ไม่สำเร็จ"}
                       </span>
-                      <span className="history-error">
+                      <span data-label="สาเหตุ" className="history-error">
                         {item.status === "failed" ? item.error_message || "-" : "-"}
                       </span>
                     </div>

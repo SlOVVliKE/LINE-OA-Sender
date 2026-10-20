@@ -43,7 +43,8 @@ export async function saveDailyCampaign({
   messageText,
   imageId,
   allRecipients,
-  recipientIds
+  recipientIds,
+  mentionUserIds = {}
 }) {
   await ensureCampaignForBot(botId);
   const normalizedTime = normalizeTime(sendTime);
@@ -54,6 +55,14 @@ export async function saveDailyCampaign({
   const ids = Array.isArray(recipientIds)
     ? recipientIds.map((id) => Number(id)).filter(Number.isFinite)
     : [];
+  const mentions = mentionUserIds && typeof mentionUserIds === "object" && !Array.isArray(mentionUserIds)
+    ? Object.fromEntries(
+        Object.entries(mentionUserIds).map(([groupId, userIds]) => [
+          String(Number(groupId)),
+          Array.isArray(userIds) ? [...new Set(userIds.filter((id) => typeof id === "string"))].slice(0, 20) : []
+        ])
+      )
+    : {};
 
   const result = await query(
     `
@@ -65,8 +74,9 @@ export async function saveDailyCampaign({
         image_id = $5,
         all_recipients = $6,
         recipient_ids = $7::jsonb,
+        mention_user_ids = $8::jsonb,
         updated_at = NOW()
-      WHERE bot_id = $8
+      WHERE bot_id = $9
       RETURNING *
     `,
     [
@@ -77,6 +87,7 @@ export async function saveDailyCampaign({
       imageId || null,
       Boolean(allRecipients),
       JSON.stringify(ids),
+      JSON.stringify(mentions),
       botId
     ]
   );
@@ -99,7 +110,8 @@ async function sendDueForBot(bot, now) {
     messageText: campaign.message_text,
     imageId: campaign.image_id,
     allRecipients: campaign.all_recipients,
-    recipientIds: campaign.recipient_ids
+    recipientIds: campaign.recipient_ids,
+    mentionUserIds: campaign.mention_user_ids
   });
 
   await query(

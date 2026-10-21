@@ -4,8 +4,14 @@ databases:
     databaseName: line_oa_sender
     user: line_oa_sender
 
-envVarGroups:
-  - name: line-oa-sender-secrets
+services:
+  - type: web
+    name: line-oa-sender
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
     envVars:
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
@@ -19,24 +25,11 @@ envVarGroups:
         generateValue: true
       - key: CRON_SECRET
         sync: false
-      - key: APP_BASE_URL
-        sync: false
-
-services:
-  - type: web
-    name: line-oa-sender
-    runtime: node
-    plan: free
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
-    healthCheckPath: /health
-    envVars:
-      - fromGroup: line-oa-sender-secrets
       - key: DATABASE_URL
         fromDatabase:
           name: line-oa-sender-db
           property: connectionString
-      - key: NODE_VERSION
-        value: 24.14.0
+      - key: DATABASE_SSL
+        value: false
       - key: NODE_ENV
         value: production

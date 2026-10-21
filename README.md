@@ -78,14 +78,16 @@ npm.cmd run dev
 ## Deploy บน Render
 
 1. Push โปรเจกต์นี้ขึ้น GitHub/GitLab/Bitbucket
-2. ใช้ `render.yaml` เป็น Blueprint
-3. Blueprint นี้ตั้ง Web Service และ Render Postgres เป็น `free` แล้ว และไม่มี Render Cron Job
-4. กรอก secret env vars ใน Render โดยตั้ง `CRON_SECRET` เป็นรหัสยาวแบบสุ่ม และจำค่านี้ไว้ใช้กับ GitHub Actions
+2. ที่ Render เลือก New > Blueprint แล้วเชื่อม repository นี้ เพื่อให้ Render อ่าน `render.yaml` และ build Dockerfile
+3. เลือก Free และกรอก Cloudinary keys, `ADMIN_PASSWORD`, `CRON_SECRET` ในขั้นตอนสร้าง Blueprint
+4. หลัง service ได้ URL แล้ว เพิ่ม `APP_BASE_URL` ใน Environment ของ Render เป็น URL จริง เช่น `https://line-oa-sender.onrender.com` แล้ว deploy ใหม่
 5. Login ด้วย `ADMIN_PASSWORD`
 6. เพิ่ม botlineOA ในหน้า Admin แล้ว copy webhook URL ของ bot นั้นไปตั้งใน LINE Developers
 7. เปิดใช้งาน webhook ใน LINE Developers Console
 8. เพิ่ม UserOA และ assign botlineOA ให้ UserOA ผ่าน checkbox
 9. ให้ผู้ใช้ทัก OA หรือให้ OA ถูกเพิ่มเข้ากลุ่มก่อน รายชื่อจึงจะขึ้นใน UI ของ botlineOA นั้น
+
+Blueprint นี้ตั้ง Render Web Service, Dockerfile และ Render Postgres เป็น `free` เพื่อทดลองเท่านั้น ฐานข้อมูลฟรีของ Render หมดอายุหลัง 30 วัน และเว็บอาจ sleep เมื่อไม่มี traffic; อย่าใช้เก็บข้อมูลจริงหรือพึ่งพา uptime สำหรับการส่งแจ้งเตือนสำคัญ
 
 ## ตั้งเวลาแบบฟรีด้วย GitHub Actions
 
